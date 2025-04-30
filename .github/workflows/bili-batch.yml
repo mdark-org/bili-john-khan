@@ -1,0 +1,201 @@
+name: bili-batch
+on:
+  workflow_dispatch:
+    inputs:
+      mid:
+        required: true
+        description: "Bilibili member id"
+      keywords:
+        required: true
+        description: "keywords filter"
+      # new1, new2, new3, before, ..., ..., after, ...
+      before:
+        required: false
+        description: "all bvid after(sort by pubdate, small to big) input will be ignored(include before)"
+      after:
+        required: false
+        description: "all bvid before(sort by pubdate, small to big) input will be ignored(include after)"
+      limit:
+        default: 50
+        required: false
+        description: "limit, default 50, max 1000"
+      max-parallel:
+        default: 4
+        required: false
+        description: "max-parallel"
+      exec-even-exist:
+        type: 'boolean'
+        required: false
+        default: 'false'
+      model:
+        description: "stt model, currently only support gemini, which is cheap(free for most case), fast and good enough for such task"
+        type: choice
+        default: "gemini-2.5-flash-preview-04-17"
+        options:
+          - "gemini-2.5-pro-exp-03-25"
+          - "gemini-2.5-flash-preview-04-17"
+      branch:
+        description: "branch"
+        required: false
+      runs-on:
+        description: "runs-on"
+        type: choice
+        required: false
+        options:
+          - "ubuntu-latest"
+          - "self-hosted"
+env:
+  mid: ${{ inputs.mid }}
+  keywords: ${{ inputs.keywords }}
+  prompt-template: ${{ inputs.prompt-template }}
+  system-prompt-template: ${{ inputs.system-prompt-template }}
+  model: ${{ inputs.model }}
+  exec-even-exist: ${{ inputs.exec-even-exist || 'false' }}
+  branch: ${{ inputs.branch || format('batch/{0}/{1}', inputs.mid, inputs.keywords) }}
+  maxOutputTokens: ${{ inputs.maxOutputTokens || '65536' }}
+  commit-type: 'commit'
+  runs-on: ${{ inputs.runs-on || 'ubuntu-latest' }}
+jobs:
+  batch-get-video:
+    runs-on: ${{ env.runs-on }}
+    outputs:
+      videos: ${{ steps.set-result.outputs.result }}
+    steps:
+      - name: get videos
+        id: bili
+        uses: ktKongTong/bili-action@v0.2.11
+        with:
+          mid: ${{ env.mid }}
+          keyword: ${{ env.keywords }}
+          batch: true
+      - name: show result
+        run: echo "${{join(fromJSON(steps.bili.outputs.video).batch.*.bvid)}}"
+      - uses: actions/github-script@v7
+        id: set-result
+        with:
+          # new1, new2, new3, before, ..., ..., after, ...
+          script: |
+            const bvids = "${{ join(fromJSON(steps.bili.outputs.video).batch.*.bvid) }}"
+            let allId = bvids.split(',')
+            let startIndex = allId.indexOf("${{ inputs.before }}")
+            let endIndex = allId.indexOf("${{ inputs.after }}") + 1
+            if(startIndex == -1) {
+              startIndex = 0
+            }
+            if(endIndex == 0) {
+              endIndex = allId.length
+            }
+            allId = allId.slice(startIndex, endIndex)
+            allId = allId.slice(0, ${{ fromJSON(inputs.limit) }})
+            const lastId = allId[allId.length - 1]
+            const chunk1 = allId.filter((id, idx) => idx % 4 == 0)
+            const chunk2 = allId.filter((id, idx) => idx % 4 == 1)
+            const chunk3 = allId.filter((id, idx) => idx % 4 == 2)
+            const chunk4 = allId.filter((id, idx) => idx % 4 == 3)
+            return [chunk1, chunk2, chunk3, chunk4, allId, lastId]
+      - name: Get result
+        run: echo "${{steps.set-result.outputs.result}}"
+#      - name: echo summary
+#        run: |
+      - name: create-branch
+        uses: peterjgrainger/action-create-branch@v2.2.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
+        with:
+          branch: ${{ env.branch }}
+  get-video-chunk-1:
+    needs: [batch-get-video]
+    runs-on: ${{ env.runs-on }}
+    continue-on-error: true
+    strategy:
+      max-parallel: ${{ fromJSON(inputs.max-parallel) }}
+      matrix: # maximum of 256 configurations
+        bvid: ${{ fromJSON(needs.batch-get-video.outputs.videos)[0] }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: get content
+        uses: mdark-org/autodoc-action@v0.2.1
+        with:
+          maxOutputTokens: ${{ inputs.maxOutputTokens }}
+          token: ${{ secrets.GEMINI_TOKEN }}
+          github-token: ${{ secrets.PAT }}
+          model: ${{ env.model }}
+          bvid: ${{ matrix.bvid }}
+          bili-proxy: ${{ secrets.BILI_STREAM_PROXY }}
+          exec-even-exist: ${{ env.exec-even-exist }}
+          branch: ${{ env.branch }}
+          type: ${{ env.commit-type }}
+          prompt-template: ${{ env.prompt-template }}
+          system-prompt-template: ${{ env.system-prompt-template }}
+  get-video-chunk-2:
+    needs: [batch-get-video, get-video-chunk-1]
+    runs-on: ${{ env.runs-on }}
+    continue-on-error: true
+    strategy:
+      max-parallel: ${{ fromJSON(inputs.max-parallel) }}
+      matrix: # maximum of 256 configurations
+        bvid: ${{ fromJSON(needs.batch-get-video.outputs.videos)[1] }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: get content
+        uses: mdark-org/autodoc-action@v0.2.1
+        with:
+          maxOutputTokens: ${{ inputs.maxOutputTokens }}
+          token: ${{ secrets.GEMINI_TOKEN }}
+          github-token: ${{ secrets.PAT }}
+          model: ${{ env.model }}
+          bvid: ${{ matrix.bvid }}
+          bili-proxy: ${{ secrets.BILI_STREAM_PROXY }}
+          exec-even-exist: ${{ env.exec-even-exist }}
+          branch: ${{ env.branch }}
+          type: ${{ env.commit-type }}
+          prompt-template: ${{ env.prompt-template }}
+          system-prompt-template: ${{ env.system-prompt-template }}
+  get-video-chunk-3:
+    needs: [batch-get-video,get-video-chunk-2]
+    runs-on: ${{ env.runs-on }}
+    continue-on-error: true
+    strategy:
+      max-parallel: ${{ fromJSON(inputs.max-parallel) }}
+      matrix: # maximum of 256 configurations
+        bvid: ${{ fromJSON(needs.batch-get-video.outputs.videos)[2] }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: get content
+        uses: mdark-org/autodoc-action@v0.2.1
+        with:
+          maxOutputTokens: ${{ inputs.maxOutputTokens }}
+          token: ${{ secrets.GEMINI_TOKEN }}
+          github-token: ${{ secrets.PAT }}
+          model: ${{ env.model }}
+          bvid: ${{ matrix.bvid }}
+          bili-proxy: ${{ secrets.BILI_STREAM_PROXY }}
+          exec-even-exist: ${{ env.exec-even-exist }}
+          branch: ${{ env.branch }}
+          type: ${{ env.commit-type }}
+          prompt-template: ${{ env.prompt-template }}
+          system-prompt-template: ${{ env.system-prompt-template }}
+  get-video-chunk-4:
+    needs: [batch-get-video, get-video-chunk-3]
+    runs-on: ${{ env.runs-on }}
+    continue-on-error: true
+    strategy:
+      max-parallel: ${{ fromJSON(inputs.max-parallel) }}
+      matrix: # maximum of 256 configurations
+        bvid: ${{ fromJSON(needs.batch-get-video.outputs.videos)[3] }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: get content
+        uses: mdark-org/autodoc-action@v0.2.1
+        with:
+          maxOutputTokens: ${{ inputs.maxOutputTokens }}
+          token: ${{ secrets.GEMINI_TOKEN }}
+          github-token: ${{ secrets.PAT }}
+          model: ${{ env.model }}
+          bvid: ${{ matrix.bvid }}
+          bili-proxy: ${{ secrets.BILI_STREAM_PROXY }}
+          exec-even-exist: ${{ env.exec-even-exist }}
+          branch: ${{ env.branch }}
+          type: ${{ env.commit-type }}
+          prompt-template: ${{ env.prompt-template }}
+          system-prompt-template: ${{ env.system-prompt-template }}
