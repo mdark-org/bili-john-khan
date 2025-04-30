@@ -11,8 +11,8 @@ match:
     platform:
       bilibili:
         condition:
-          owner.name: "小约翰可汗"
-          title: "硬核狠人"
+          owner.mid: 23947287
+          title: 硬核狠人
         template:
           script: '.autodoc/scripts/bilibili/hardcore.mjs'
           prompt:
