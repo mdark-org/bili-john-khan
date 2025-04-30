@@ -14,9 +14,8 @@ match:
         condition:
           owner.mid: 23947287
           title: 硬核狠人
+        script: '.autodoc/scripts/bilibili/hardcore.mjs'
         template:
-          filepath: docs/john-khan/hardcore/{{title}}.md
-          script: '.autodoc/scripts/bilibili/hardcore.mjs'
           prompt:
             user: |
               - 这是一档历史人物介绍类节目。
