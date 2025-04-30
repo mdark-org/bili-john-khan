@@ -1,0 +1,163 @@
+name: bili
+on:
+  workflow_call:
+    inputs:
+      bvid:
+        description: "Bilibili bvid"
+        required: true
+        type: string
+      filepath-template:
+        description: "filepath-template"
+        required: false
+        type: string
+      system-prompt-template:
+        description: "system-prompt-template"
+        required: false
+        type: string
+      prompt-template:
+        description: "prompt"
+        required: false
+        type: string
+      markdown-template:
+        description: "markdown-template"
+        required: false
+        type: string
+      commit-message-template:
+        description: "commit-message-template"
+        required: false
+        type: string
+      exec-even-exist:
+        type: 'boolean'
+        required: false
+      model:
+        type: string
+        description: "gemini model"
+        default: "gemini-2.5-flash-preview-04-17"
+      maxOutputTokens:
+        description: "maxOutputTokens"
+        required: false
+        default: '65536'
+        type: string
+      branch:
+        description: "commit branch"
+        required: false
+        type: string
+      runs-on:
+        description: "runs-on"
+        required: false
+        type: string
+      commit-type:
+        description: "commit type, pr | commit"
+        required: false
+        default: 'pr'
+        type: string
+  workflow_dispatch:
+    inputs:
+      bvid:
+        description: "Bilibili bvid"
+        required: true
+        type: string
+      filepath-template:
+        description: "filepath-template"
+        required: false
+        type: string
+      prompt-template:
+        description: "prompt-template"
+        required: false
+        type: string
+      markdown-template:
+        description: "markdown-template"
+        required: false
+        type: string
+      commit-type:
+        description: "commit type, pr | commit"
+        required: false
+        default: 'pr'
+        type: string
+      exec-even-exist:
+        type: 'boolean'
+        required: false
+        default: false
+        description: ' overwrite，即使分支/文件存在，也继续执行'
+      model:
+        description: "gemini model"
+        type: choice
+        default: "gemini-2.5-flash-preview-04-17"
+        options:
+          - "gemini-2.5-pro-exp-03-25"
+          - "gemini-2.5-flash-preview-04-17"
+      runs-on:
+        description: "runs-on"
+        type: choice
+        required: false
+        options:
+          - "ubuntu-latest"
+          - "self-hosted"
+      branch:
+        description: "commit branch"
+        required: false
+        type: string
+      maxOutputTokens:
+        description: "maxOutputTokens"
+        required: false
+        default: '65536'
+        type: string
+env:
+  bvid: ${{inputs.bvid }}
+  exec-even-exist: ${{ inputs.exec-even-exist }}
+  filepath-template: ${{ inputs.filepath-template }}
+  prompt-template: ${{ inputs.prompt-template }}
+  system-prompt-template: ${{ inputs.system-prompt-template }}
+  markdown-template: ${{ inputs.markdown-template }}
+  commit-message-template: ${{ inputs.commit-message-template }}
+  model: ${{ inputs.model }}
+  branch: ${{ inputs.branch || format('fetch/{0}', inputs.bvid) }}
+  commit-type: ${{ inputs.commit-type || 'pr' }}
+  runs-on: ${{inputs.runs-on || 'ubuntu-latest' }}
+jobs:
+
+  split-input:
+    runs-on: 'ubuntu-latest'
+    outputs:
+      videos: ${{ steps.set-result.outputs.result }}
+    steps:
+      - uses: actions/github-script@v7
+        id: set-result
+        with:
+          # new1, new2, new3, before, ..., ..., after, ...
+          script: |
+            const bvids = "${{ inputs.bvid }}"
+            let allId = bvids.split(',')
+            return allId
+  get-video:
+    needs: split-input
+    strategy:
+      max-parallel: 4
+      fail-fast: false
+      matrix:
+        bvid: ${{ fromJSON(needs.split-input.outputs.videos) }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: get video
+        id: bili
+        uses: ktKongTong/bili-action@v0.2.11
+        with:
+          bvid: ${{ matrix.bvid }}
+      - uses: actions/checkout@v4
+      - name: get content
+        uses: mdark-org/autodoc-action@v0.2.1
+        with:
+          maxOutputTokens: ${{ inputs.maxOutputTokens }}
+          token: ${{ secrets.GEMINI_TOKEN }}
+          github-token: ${{ secrets.PAT }}
+          model: ${{ env.model }}
+          bvid: ${{ matrix.bvid }}
+          bili-proxy: ${{ secrets.BILI_STREAM_PROXY }}
+          exec-even-exist: ${{ env.exec-even-exist }}
+          branch: ${{ env.branch }}
+          type: ${{ env.commit-type }}
+          filepath-template: ${{ env.filepath-template }}
+          markdown-template: ${{ env.markdown-template }}
+          prompt-template: ${{ env.prompt-template }}
+          system-prompt-template: ${{ env.system-prompt-template }}
+#          commit-message-template: ${{ env.commit-message-tmplate || format('new docs {0}', fromJSON(steps.bili.outputs.video).title) }}
