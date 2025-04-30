@@ -1,15 +1,6 @@
 ---
 title: "在苏联抢劫是什么体验？【硬核狠人01】"
-description: "本文参考资料:
-
-https://ru.wikipedia.org/wiki/团队俄文维基资料
-
-https://www.rostov.kp.ru/daily《共青团真理报》的解密资料
-卡西亚诺夫的纪实文学作品《在罗斯托夫》https://olenalex.livejournal.com/969.html 门户网站“罗斯托夫词典”上对幻影的详细记录
-
- 案件庭审实录、检察官在庭审时的发言原稿
-
-扎拉科夫在2017年出版的《70年代大盗》"
+description: "本文参考资料: https://ru.wikipedia.org/wiki/团队俄文维基资料。https://www.rostov.kp.ru/daily《共青团真理报》的解密资料。卡西亚诺夫的纪实文学作品《在罗斯托夫》https://olenalex.livejournal.com/969.html 门户网站“罗斯托夫词典”上对幻影的详细记录。案件庭审实录、检察官在庭审时的发言原稿。扎拉科夫在2017年出版的《70年代大盗》"
 tags: []
 date: 1623983560
 bvid: BV1qM4y1u79j

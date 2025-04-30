@@ -5,6 +5,7 @@ listen:
         post:
           mid: 23947287
           keywords: 硬核狠人
+          filepath: docs/john-khan/hardcore/{{title}}.md
           script: '.autodoc/scripts/bilibili/hardcore.mjs'
 match:
   - id: 硬核狠人
@@ -14,6 +15,7 @@ match:
           owner.mid: 23947287
           title: 硬核狠人
         template:
+          filepath: docs/john-khan/hardcore/{{title}}.md
           script: '.autodoc/scripts/bilibili/hardcore.mjs'
           prompt:
             user: |
