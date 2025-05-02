@@ -1,0 +1,25 @@
+listen:
+  - id: 奇葩小国
+    platform:
+      bilibili:
+        post:
+          mid: 23947287
+          keywords: 奇葩小国
+          script: '.autodoc/scripts/bilibili/odd-country.mjs'
+match:
+  - id: 奇葩小国
+    platform:
+      bilibili:
+        condition:
+          owner.mid: 23947287
+          title: 奇葩小国
+        script: '.autodoc/scripts/bilibili/odd-country.mjs'
+        template:
+          prompt:
+            user: |
+              - 这是一档介绍一些小国家的节目。
+              - 这份音频的标题是【{{ title }}】，介绍是【{{desc}}】，相关的动态介绍是【{{dynamic}}】。
+              - 按照内容进行合适的分节分段，并添加标点符号，段落前后用两个换行符进行分隔。
+              - 整体内容可以分为几个章节，每个章节带有若干个段落，为每个章节添加一个 markdown ### 三级标题。
+              - 这份音频中可能包含带货广告信息，请识别并用markdown语法的删除线进行标记，并在其前后添加换行。
+              - 不要对原文进行大幅度的修改。响应使用简体中文。
